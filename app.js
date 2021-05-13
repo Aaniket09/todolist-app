@@ -23,10 +23,15 @@ const newListsSchema = {
   name : String,
   items : [itemsSchema]
 };
+const newListsNameSchema = {
+  name : String
+};
 
 const Item = mongoose.model("Item", itemsSchema);
 
 const List = mongoose.model("List", newListsSchema);
+
+const Listname = mongoose.model("Listname", newListsNameSchema);
 
 const item1 = new Item({
   name: "Welcome to your todolist!"
@@ -87,6 +92,26 @@ app.post("/", function(req, res) {
 
 });
 
+app.post("/delete-newlist", function(req, res) {
+
+  const checkListId = req.body.checkbox;
+  const listName = _.capitalize(req.body.listName);
+
+  Listname.findByIdAndRemove(checkListId, function(err) {
+    if(!err) {
+      console.log("Successfully deleted new list.");
+      res.redirect("/new-list");
+    }
+  });
+
+  List.findOneAndRemove({name : listName}, function(err, foundList) {
+    if(err) {
+      console.log(err);
+    }
+  });
+
+});
+
 app.post("/delete", function(req, res) {
 
   const checkItemId = req.body.checkbox;
@@ -113,25 +138,41 @@ app.get("/:customListName", function(req, res) {
 
   const customListName = _.capitalize(req.params.customListName);
 
-  List.findOne({name: customListName}, async function(err, foundList) {
-    if(!err){
-      if(!foundList){
-        const list = new List({
-          name: customListName,
-          items: defaultItems
-        });
-        await list.save();
-        res.redirect("/" + customListName);
+  if(req.params.customListName === "new-list"){
+    Listname.find({}, function(err, foundListsName) {
+      if(err){
+        console.log(err);
       } else {
-        res.render("list", {listTitle: foundList.name, newListItems: foundList.items});
+        res.render("newlists", {listTitle: "New Lists", newListItems: foundListsName});
       }
-    }
-  });
+    });
+  } else {
+    List.findOne({name: customListName}, async function(err, foundList) {
+      if(!err){
+        if(!foundList){
+          const list = new List({
+            name: customListName,
+            items: defaultItems
+          });
+          await list.save();
+          res.redirect("/" + customListName);
+        } else {
+          res.render("list", {listTitle: foundList.name, newListItems: foundList.items});
+        }
+      }
+    });
+  }
 
 });
 
-app.get("/about", function(req, res) {
-  res.render("about");
+app.post("/add", async function(req, res) {
+  const newListTitle = req.body.newItem;
+
+  const listName = new Listname({
+    name : newListTitle
+  });
+  await listName.save()
+  res.redirect("/new-list");
 });
 
 let port = process.env.PORT;
